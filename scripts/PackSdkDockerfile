@@ -1,23 +1,65 @@
-FROM openjdk:8
+FROM ubuntu:18.04
 
-ENV SDK_URL="https://dl.google.com/android/repository/sdk-tools-linux-3859397.zip" \
-    ANDROID_HOME="/usr/local/android-sdk" \
-    ANDROID_VERSION=26 \
-    ANDROID_BUILD_TOOLS_VERSION=26.0.2
+ENV PLATFORM_TOOLS_URL="http://dl.google.com/android/repository/platform-tools_r19.0.1-linux.zip" \
+    SDK_TOOLS_URL="http://dl.google.com/android/repository/tools_r22.6.2-linux.zip"  \
+#    NDK_URL="http://dl.google.com/android/ndk/android-ndk-r8b-linux-x86.tar.bz2"  \
+    NDK_URL="https://dl.google.com/android/repository/android-ndk-r17b-linux-x86_64.zip"   \
+    ANDROID_HOME="/usr/local/android-sdk/" \
+    PATH=${PATH}:/usr/local/android-sdk/android-sdk-linux/tools \
+    PATH=${PATH}:/usr/local/android-sdk/android-sdk-linux/platform-tools \
+    NDK_HOME="/usr/local/android-sdk/android-ndk-r17b/" \
+    ANT_HOME="/usr/local/apache-ant-1.10.3/bin/ant" \
+    ANT_URL="http://apache.uvigo.es//ant/binaries/apache-ant-1.10.3-bin.zip"  \
+    ANDROID_VERSION=19 \
+    ANDROID_BUILD_TOOLS_VERSION=19.0.1 \
+    VTK_URL="https://codeload.github.com/Kitware/VTK/zip/v8.1.1"
 
+# Install dependencies
+RUN apt update \
+    && apt -y install git cmake build-essential curl unzip openjdk-8-jdk libgl1-mesa-dev libglew-dev libgl1-mesa-glx
+
+
+#RUN apt update \
+#    && apt -y install git cmake build-essential curl unzip openjdk-8-jdk libgl1-mesa-dev libglew-dev libgl1-mesa-glx\
 # Download Android SDK
-RUN mkdir "$ANDROID_HOME" .android \
+RUN mkdir -p "$ANDROID_HOME" .android \
     && cd "$ANDROID_HOME" \
-    && curl -o sdk.zip $SDK_URL \
-    && unzip sdk.zip \
+    && curl -o sdk.zip $SDK_TOOLS_URL \
+    && unzip -d android-sdk-linux/ sdk.zip \
     && rm sdk.zip \
-    && yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses
+    && curl -o sdk.zip $PLATFORM_TOOLS_URL \
+    && unzip -d android-sdk-linux/ sdk.zip \
+    && rm sdk.zip \
+    && curl -o ant.zip $ANT_URL \
+    && unzip ant.zip \
+    && rm ant.zip \
+    && curl -o ndk.zip $NDK_URL \
+    && unzip ndk.zip \
+    && rm ndk.zip \
+#    && curl -o ndk.tar.bz2 $NDK_URL  \
+#    && tar xvjf ndk.tar.bz2  \
+#    && rm ndk.tar.bz2 \
+    && pwd && ls   \
+    && echo $NDK_HOME
+
+RUN cd && git clone https://github.com/Kitware/VTK.git \
+    && mkdir vtk-android
+
+RUN cd && cd vtk-android  \
+    && cmake -DVTK_ANDROID_BUILD=ON -DANT_EXECUTABLE=$ANT_HOME -DBUILD_EXAMPLES=ON -DANDROID_NDK=$NDK_HOME -DANDROID_NATIVE_API_LEVEL=27 -DANDROID_ARCH_ABI=armeabi-v7a -DANDROID_EXECUTABLE=$ANDROID_HOME/android-sdk-linux/tools/android ../VTK  \
+    && make -j4
+#    && yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses
+
+# Download VTK
+#RUN cd && git clone https://github.com/Kitware/VTK.git \
+#    && mkdir vtk-android  \
+#    && cd vtk-android  \
+#    && cmake -DVTK_ANDROID_BUILD=ON -DBUILD_EXAMPLES=ON -DANT_EXECUTABLE= -DANDROID_NDK=$NDK_HOME -DANDROID_NATIVE_API_LEVEL=27 -DANDROID_ARCH_ABI=armeabi-v7a -DANDROID_EXECUTABLE=$ANDROID_HOME/tools/bin/android ../VTK
 
 # Install Android Build Tool and Libraries
-RUN $ANDROID_HOME/tools/bin/sdkmanager --update
-RUN $ANDROID_HOME/tools/bin/sdkmanager "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
-    "platforms;android-${ANDROID_VERSION}" \
-    "platform-tools"
+#RUN $ANDROID_HOME/tools/bin/sdkmanager "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
+#    "platforms;android-${ANDROID_VERSION}" \
+#    "platform-tools"
 
 RUN mkdir /application
 WORKDIR /application
